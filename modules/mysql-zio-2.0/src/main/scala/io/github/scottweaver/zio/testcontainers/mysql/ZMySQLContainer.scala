@@ -29,7 +29,8 @@ object ZMySQLContainer {
     imageVersion: String,
     databaseName: String,
     username: String,
-    password: String
+    password: String,
+    reuse: Boolean
   )
 
   object Settings {
@@ -38,7 +39,8 @@ object ZMySQLContainer {
         "latest",
         MySQLContainer.defaultDatabaseName,
         MySQLContainer.defaultUsername,
-        MySQLContainer.defaultPassword
+        MySQLContainer.defaultPassword,
+        reuse = false
       )
     )
   }
@@ -69,12 +71,19 @@ object ZMySQLContainer {
             username = settings.username,
             password = settings.password
           )
-          containerDef.start()
+          val c = containerDef.createContainer()
+          if (settings.reuse) {
+            // there should be a cleaner api in testcontainers-scala for this
+            c.underlyingUnsafeContainer.withReuse(true)
+          }
+          c.start()
+          c
         }.orDie
       )(container =>
         ZIO
           .attempt(container.stop())
           .ignoreLogged
+          .unless(settings.reuse)
       )
 
     ZLayer.scopedEnvironment {
